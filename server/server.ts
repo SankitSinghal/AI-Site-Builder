@@ -11,42 +11,53 @@ import { stripeWebhook } from './controllers/stripeWebhook.js';
 
 const app = express();
 
-const port = 3000;
+const isProd = process.env.NODE_ENV === "production";
 
 const corsOptions = {
-    origin: process.env.TRUSTED_ORIGINS?.split(',') || [],
-    credentials: true,
-}
+  origin: isProd
+    ? process.env.TRUSTED_ORIGINS?.split(',')
+    : "*",
+  credentials: true,
+};
 
-app.use(cors(corsOptions))
-app.post('/api/stripe', express.raw({type: 'application/json'}), stripeWebhook)
+app.use(cors(corsOptions));
+
+app.post(
+  '/api/stripe',
+  express.raw({ type: 'application/json' }),
+  stripeWebhook
+);
 
 app.all('/api/auth/{*any}', toNodeHandler(auth));
 
-app.use(express.json({limit: '50mb'}));
+app.use(express.json({ limit: '50mb' }));
 
-if (process.env.NODE_ENV === "development"){
-    app.use(morgan('dev'));
+if (!isProd) {
+  app.use(morgan('dev'));
 }
 
 app.get('/', (req: Request, res: Response) => {
-    res.send('Server is Live!');
+  res.send('Server is Live!');
 });
 
 app.use('/api/user', userRouter);
 app.use('/api/project', projectRouter);
 
-
 app.get("/check", async (req: Request, res: Response) => {
-    try {
-        await prisma.$connect();
-        res.status(200).json({ message: "Database connected" })
-    } catch (error) {
-        res.status(500).json({ message: "Database not coneected" });
-    }
+  try {
+    await prisma.$connect();
+    res.status(200).json({ message: "Database connected" });
+  } catch (error) {
+    res.status(500).json({ message: "Database not connected" });
+  }
 });
 
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-});
 
+if (!isProd) {
+  const port = 3000;
+  app.listen(port, () => {
+    console.log(`🚀 Server running at http://localhost:${port}`);
+  });
+}
+
+export default app;
